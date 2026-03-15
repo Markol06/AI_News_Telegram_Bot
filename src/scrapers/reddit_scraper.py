@@ -1,43 +1,56 @@
-"""Scraper for top AI posts from Reddit (r/MachineLearning, r/artificial, r/LocalLLaMA)."""
-
-import time
+"""Scraper for top AI posts from Reddit (search across all subreddits)."""
 
 import requests
 
-SUBREDDITS = ["MachineLearning", "artificial", "LocalLLaMA"]
+SEARCH_URL = "https://www.reddit.com/search.json"
+
+AI_QUERIES = [
+    "artificial intelligence",
+    "machine learning OR LLM OR generative AI",
+    "OpenAI OR Anthropic OR Google AI OR GPT OR Claude",
+]
+
 MAX_POSTS = 5
 USER_AGENT = "AI-News-Bot/1.0"
 
 
 def fetch_reddit_articles():
-    """Fetch top-5 posts by score across all subreddits (last 7 days).
+    """Fetch top-5 AI posts by score across all of Reddit (last 7 days).
 
+    Searches by AI keywords and returns the most popular results.
     Returns a list of dicts: {title, url, score, content, subreddit}.
     """
-    all_posts = []
-    for subreddit in SUBREDDITS:
-        posts = _fetch_subreddit(subreddit)
-        all_posts.extend(posts)
-        time.sleep(1)
+    all_posts = {}
 
-    all_posts.sort(key=lambda p: p["score"], reverse=True)
-    return all_posts[:MAX_POSTS]
+    for query in AI_QUERIES:
+        posts = _search_reddit(query)
+        for post in posts:
+            all_posts[post["url"]] = post
+
+    results = list(all_posts.values())
+    results.sort(key=lambda p: p["score"], reverse=True)
+    return results[:MAX_POSTS]
 
 
-def _fetch_subreddit(subreddit):
-    """Fetch top posts from a single subreddit over the last week."""
-    url = f"https://www.reddit.com/r/{subreddit}/top.json"
+def _search_reddit(query):
+    """Search Reddit for top posts matching a query over the last week."""
     try:
         response = requests.get(
-            url,
-            params={"t": "week", "limit": 25},
+            SEARCH_URL,
+            params={
+                "q": query,
+                "sort": "top",
+                "t": "week",
+                "limit": 25,
+                "type": "link",
+            },
             headers={"User-Agent": USER_AGENT},
             timeout=30,
         )
         response.raise_for_status()
         data = response.json()
     except Exception as e:
-        print(f"  Warning: Reddit r/{subreddit} request failed: {e}")
+        print(f"  Warning: Reddit search failed for '{query}': {e}")
         return []
 
     posts = []
@@ -48,7 +61,7 @@ def _fetch_subreddit(subreddit):
             "url": f"https://www.reddit.com{post.get('permalink', '')}",
             "score": post.get("score", 0),
             "content": post.get("selftext", ""),
-            "subreddit": subreddit,
+            "subreddit": post.get("subreddit", ""),
         })
     return posts
 

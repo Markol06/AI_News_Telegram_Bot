@@ -1,12 +1,12 @@
-"""Tests for Reddit scraper."""
+"""Tests for Reddit scraper (search across all subreddits)."""
 
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock
 
 from src.scrapers.reddit_scraper import (
     fetch_reddit_articles,
-    _fetch_subreddit,
+    _search_reddit,
     fetch_article_content,
-    SUBREDDITS,
+    AI_QUERIES,
     MAX_POSTS,
     USER_AGENT,
 )
@@ -19,24 +19,25 @@ def _make_reddit_post(i, subreddit="MachineLearning", score=100):
             "permalink": f"/r/{subreddit}/comments/abc{i}/post_{i}/",
             "score": score,
             "selftext": f"Self text for post {i}",
+            "subreddit": subreddit,
         }
     }
 
 
-def _make_subreddit_response(posts):
+def _make_search_response(posts):
     return {"data": {"children": posts}}
 
 
-class TestFetchSubreddit:
+class TestSearchReddit:
     @patch("src.scrapers.reddit_scraper.requests.get")
-    def test_returns_posts_from_subreddit(self, mock_get):
+    def test_returns_posts_from_search(self, mock_get):
         posts = [_make_reddit_post(i, score=100 - i) for i in range(3)]
         mock_resp = MagicMock()
-        mock_resp.json.return_value = _make_subreddit_response(posts)
+        mock_resp.json.return_value = _make_search_response(posts)
         mock_resp.raise_for_status = MagicMock()
         mock_get.return_value = mock_resp
 
-        result = _fetch_subreddit("MachineLearning")
+        result = _search_reddit("artificial intelligence")
 
         assert len(result) == 3
         assert result[0]["title"] == "Post 0"
@@ -48,11 +49,11 @@ class TestFetchSubreddit:
     @patch("src.scrapers.reddit_scraper.requests.get")
     def test_sends_proper_user_agent(self, mock_get):
         mock_resp = MagicMock()
-        mock_resp.json.return_value = _make_subreddit_response([])
+        mock_resp.json.return_value = _make_search_response([])
         mock_resp.raise_for_status = MagicMock()
         mock_get.return_value = mock_resp
 
-        _fetch_subreddit("MachineLearning")
+        _search_reddit("AI")
 
         call_kwargs = mock_get.call_args
         headers = call_kwargs.kwargs.get("headers") or call_kwargs[1].get("headers")
@@ -61,57 +62,68 @@ class TestFetchSubreddit:
     @patch("src.scrapers.reddit_scraper.requests.get")
     def test_uses_top_week_params(self, mock_get):
         mock_resp = MagicMock()
-        mock_resp.json.return_value = _make_subreddit_response([])
+        mock_resp.json.return_value = _make_search_response([])
         mock_resp.raise_for_status = MagicMock()
         mock_get.return_value = mock_resp
 
-        _fetch_subreddit("artificial")
+        _search_reddit("machine learning")
 
         call_kwargs = mock_get.call_args
         params = call_kwargs.kwargs.get("params") or call_kwargs[1].get("params")
+        assert params["sort"] == "top"
         assert params["t"] == "week"
 
     @patch("src.scrapers.reddit_scraper.requests.get")
     def test_returns_empty_on_error(self, mock_get):
         mock_get.side_effect = Exception("Connection error")
-        result = _fetch_subreddit("MachineLearning")
+        result = _search_reddit("AI")
         assert result == []
 
 
 class TestFetchRedditArticles:
-    @patch("src.scrapers.reddit_scraper.time.sleep")
-    @patch("src.scrapers.reddit_scraper._fetch_subreddit")
-    def test_fetches_all_three_subreddits(self, mock_fetch, mock_sleep):
-        mock_fetch.return_value = []
+    @patch("src.scrapers.reddit_scraper._search_reddit")
+    def test_searches_all_queries(self, mock_search):
+        mock_search.return_value = []
         fetch_reddit_articles()
 
-        assert mock_fetch.call_count == 3
-        called_subs = [c.args[0] for c in mock_fetch.call_args_list]
-        assert "MachineLearning" in called_subs
-        assert "artificial" in called_subs
-        assert "LocalLLaMA" in called_subs
+        assert mock_search.call_count == len(AI_QUERIES)
 
-    @patch("src.scrapers.reddit_scraper.time.sleep")
-    @patch("src.scrapers.reddit_scraper._fetch_subreddit")
-    def test_selects_top_5_by_score(self, mock_fetch, mock_sleep):
-        def side_effect(sub):
-            if sub == "MachineLearning":
+    @patch("src.scrapers.reddit_scraper._search_reddit")
+    def test_deduplicates_by_url(self, mock_search):
+        post = {
+            "title": "Same post",
+            "url": "https://www.reddit.com/r/test/comments/abc/post/",
+            "score": 500,
+            "content": "",
+            "subreddit": "test",
+        }
+        mock_search.return_value = [post]
+
+        result = fetch_reddit_articles()
+
+        urls = [p["url"] for p in result]
+        assert urls.count(post["url"]) == 1
+
+    @patch("src.scrapers.reddit_scraper._search_reddit")
+    def test_selects_top_5_by_score(self, mock_search):
+        def side_effect(query):
+            if "artificial" in query:
                 return [
-                    {"title": "ML1", "url": "u1", "score": 500, "content": "", "subreddit": sub},
-                    {"title": "ML2", "url": "u2", "score": 200, "content": "", "subreddit": sub},
+                    {"title": "AI1", "url": "u1", "score": 800, "content": "", "subreddit": "a"},
+                    {"title": "AI2", "url": "u2", "score": 100, "content": "", "subreddit": "a"},
                 ]
-            elif sub == "artificial":
+            elif "machine" in query:
                 return [
-                    {"title": "AI1", "url": "u3", "score": 800, "content": "", "subreddit": sub},
-                    {"title": "AI2", "url": "u4", "score": 100, "content": "", "subreddit": sub},
+                    {"title": "ML1", "url": "u3", "score": 500, "content": "", "subreddit": "b"},
+                    {"title": "ML2", "url": "u4", "score": 200, "content": "", "subreddit": "b"},
                 ]
             else:
                 return [
-                    {"title": "LL1", "url": "u5", "score": 300, "content": "", "subreddit": sub},
-                    {"title": "LL2", "url": "u6", "score": 50, "content": "", "subreddit": sub},
+                    {"title": "OA1", "url": "u5", "score": 300, "content": "", "subreddit": "c"},
+                    {"title": "OA2", "url": "u6", "score": 50, "content": "", "subreddit": "c"},
                 ]
 
-        mock_fetch.side_effect = side_effect
+        mock_search.side_effect = side_effect
 
         result = fetch_reddit_articles()
 
@@ -119,10 +131,9 @@ class TestFetchRedditArticles:
         scores = [p["score"] for p in result]
         assert scores == [800, 500, 300, 200, 100]
 
-    @patch("src.scrapers.reddit_scraper.time.sleep")
-    @patch("src.scrapers.reddit_scraper._fetch_subreddit")
-    def test_caps_at_max_posts(self, mock_fetch, mock_sleep):
-        mock_fetch.return_value = [
+    @patch("src.scrapers.reddit_scraper._search_reddit")
+    def test_caps_at_max_posts(self, mock_search):
+        mock_search.return_value = [
             {"title": f"P{i}", "url": f"u{i}", "score": 100 - i, "content": "", "subreddit": "test"}
             for i in range(10)
         ]
@@ -130,19 +141,11 @@ class TestFetchRedditArticles:
         result = fetch_reddit_articles()
         assert len(result) == MAX_POSTS
 
-    @patch("src.scrapers.reddit_scraper.time.sleep")
-    @patch("src.scrapers.reddit_scraper._fetch_subreddit")
-    def test_handles_empty_subreddits(self, mock_fetch, mock_sleep):
-        mock_fetch.return_value = []
+    @patch("src.scrapers.reddit_scraper._search_reddit")
+    def test_handles_empty_results(self, mock_search):
+        mock_search.return_value = []
         result = fetch_reddit_articles()
         assert result == []
-
-    @patch("src.scrapers.reddit_scraper.time.sleep")
-    @patch("src.scrapers.reddit_scraper._fetch_subreddit")
-    def test_sleeps_between_requests(self, mock_fetch, mock_sleep):
-        mock_fetch.return_value = []
-        fetch_reddit_articles()
-        assert mock_sleep.call_count == 3
 
 
 class TestFetchArticleContent:
