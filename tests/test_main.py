@@ -111,7 +111,7 @@ class TestSources:
 
     def test_sources_order(self):
         names = [s["name"] for s in SOURCES]
-        assert names == ["The Batch", "Anthropic Blog", "NewsAPI", "Reddit"]
+        assert names == ["The Batch", "Anthropic Blog", "Twitter/X", "Reddit"]
 
     def test_each_source_has_required_keys(self):
         for source in SOURCES:
@@ -159,4 +159,4 @@ class TestMain:
 
         assert mock_process.call_count == 4
         source_names = [c[0][0]["name"] for c in mock_process.call_args_list]
-        assert source_names == ["The Batch", "Anthropic Blog", "NewsAPI", "Reddit"]
+        assert source_names == ["The Batch", "Anthropic Blog", "Twitter/X", "Reddit"]

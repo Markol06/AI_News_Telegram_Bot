@@ -9,9 +9,9 @@ from src.scrapers.anthropic_scraper import (
     fetch_anthropic_articles,
     fetch_article_content as fetch_anthropic_content,
 )
-from src.scrapers.newsapi_scraper import (
-    fetch_newsapi_articles,
-    fetch_article_content as fetch_newsapi_content,
+from src.scrapers.twitter_scraper import (
+    fetch_twitter_articles,
+    fetch_article_content as fetch_twitter_content,
 )
 from src.scrapers.reddit_scraper import (
     fetch_reddit_articles,
@@ -37,10 +37,10 @@ SOURCES = [
         "fetch_content": lambda article: fetch_anthropic_content(article["url"]),
     },
     {
-        "name": "NewsAPI",
-        "emoji": "\U0001f5de\ufe0f",
-        "fetch": fetch_newsapi_articles,
-        "fetch_content": lambda article: fetch_newsapi_content(article["url"]),
+        "name": "Twitter/X",
+        "emoji": "\U0001d54f",
+        "fetch": fetch_twitter_articles,
+        "fetch_content": lambda article: fetch_twitter_content(article["url"]),
     },
     {
         "name": "Reddit",
