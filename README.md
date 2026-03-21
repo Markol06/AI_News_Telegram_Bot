@@ -1,7 +1,7 @@
 # AI News Telegram Bot
 
 Multi-source AI news pipeline that:
-- fetches articles/posts from **The Batch**, **Anthropic Blog**, **NewsAPI** (with GNews fallback), and **Reddit**
+- fetches articles/posts from **The Batch**, **Anthropic Blog**, and **Twitter/X**
 - summarizes each item with OpenAI
 - sends one message per article to Telegram, grouped by source header
 - deduplicates already sent URLs via `sent_articles.json`
@@ -11,8 +11,7 @@ Multi-source AI news pipeline that:
 - Per-source processing with fixed order:
   1. The Batch
   2. Anthropic Blog
-  3. NewsAPI
-  4. Reddit
+  3. Twitter/X
 - Ukrainian summaries for Telegram
 - HTML-safe Telegram message format
 - Source isolation: one source failing does not stop the rest
@@ -22,8 +21,7 @@ Multi-source AI news pipeline that:
 - Python 3.10+
 - Telegram bot token + chat ID
 - OpenAI API key
-- NewsAPI key (optional but recommended)
-- GNews key (optional fallback)
+- RapidAPI key (for Twitter/X scraper)
 
 ## Installation
 
@@ -42,8 +40,7 @@ pip install -r requirements.txt
 OPENAI_API_KEY=...
 TELEGRAM_BOT_TOKEN=...
 TELEGRAM_CHAT_ID=...
-NEWSAPI_KEY=...
-GNEWS_API_KEY=...
+RAPIDAPI_KEY=...
 ```
 
 ## Run
@@ -65,4 +62,3 @@ pytest tests -q
 - `src/summarizer.py` - OpenAI summarization logic
 - `src/telegram_sender.py` - Telegram message delivery helpers
 - `src/history.py` - deduplication state management
-

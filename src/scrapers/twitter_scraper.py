@@ -19,17 +19,17 @@ AI_ACCOUNTS = [
     "AnthropicAI",    # Anthropic
     "GoogleDeepMind", # Google DeepMind / Gemini
     # Individuals
-    "karpathy",       # Andrej Karpathy — ex-Tesla/OpenAI, Eureka Labs
-    "AndrewYNg",      # Andrew Ng — DeepLearning.AI, Stanford
-    "ylecun",         # Yann LeCun — Chief AI Scientist @ Meta
-    "drjimfan",       # Jim Fan — NVIDIA, embodied AI
-    "drfeifei",       # Fei-Fei Li — Stanford, computer vision
-    "demishassabis",  # Demis Hassabis — CEO Google DeepMind
-    "alliekmiller",   # Allie K. Miller — AI Business, ex-Amazon/IBM
-    "jeremyphoward",  # Jeremy Howard — fast.ai
-    "rasbt",          # Sebastian Raschka — Lightning AI
-    "GaryMarcus",     # Gary Marcus — AI critic, author
-    "sama",           # Sam Altman — CEO OpenAI
+    "karpathy",       # Andrej Karpathy - ex-Tesla/OpenAI, Eureka Labs
+    "AndrewYNg",      # Andrew Ng - DeepLearning.AI, Stanford
+    "ylecun",         # Yann LeCun - Chief AI Scientist @ Meta
+    "drjimfan",       # Jim Fan - NVIDIA, embodied AI
+    "drfeifei",       # Fei-Fei Li - Stanford, computer vision
+    "demishassabis",  # Demis Hassabis - CEO Google DeepMind
+    "alliekmiller",   # Allie K. Miller - AI Business, ex-Amazon/IBM
+    "jeremyphoward",  # Jeremy Howard - fast.ai
+    "rasbt",          # Sebastian Raschka - Lightning AI
+    "GaryMarcus",     # Gary Marcus - AI critic, author
+    "sama",           # Sam Altman - CEO OpenAI
 ]
 
 MAX_TWEETS = 10

@@ -1,7 +1,5 @@
 """Main entry point for AI News Telegram Summary."""
 
-import sys
-
 from dotenv import load_dotenv
 
 from src.scrapers.batch_scraper import fetch_articles, fetch_article_content
@@ -12,10 +10,6 @@ from src.scrapers.anthropic_scraper import (
 from src.scrapers.twitter_scraper import (
     fetch_twitter_articles,
     fetch_article_content as fetch_twitter_content,
-)
-from src.scrapers.reddit_scraper import (
-    fetch_reddit_articles,
-    fetch_article_content as fetch_reddit_content,
 )
 from src.history import load_sent_articles, save_sent_articles, filter_new_articles
 from src.summarizer import summarize_articles
@@ -38,15 +32,9 @@ SOURCES = [
     },
     {
         "name": "Twitter/X",
-        "emoji": "\U0001d54f",
+        "emoji": "\U0001f426",
         "fetch": fetch_twitter_articles,
         "fetch_content": lambda article: fetch_twitter_content(article["url"]),
-    },
-    {
-        "name": "Reddit",
-        "emoji": "\U0001f4ac",
-        "fetch": fetch_reddit_articles,
-        "fetch_content": lambda article: fetch_reddit_content(article["url"]),
     },
 ]
 
