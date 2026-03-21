@@ -1,6 +1,7 @@
 """Send messages to Telegram."""
 
 import os
+from html import escape
 
 import requests
 
@@ -45,7 +46,7 @@ def send_article_message(title, url, summary):
 
     Handles long summaries by splitting across multiple messages.
     """
-    text = f'<a href="{url}">{title}</a>\n\n{summary}'
+    text = f'<a href="{url}">{escape(title)}</a>\n\n{summary}'
     _send_raw(text)
 
 
