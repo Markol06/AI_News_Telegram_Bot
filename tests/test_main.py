@@ -1,6 +1,6 @@
 """Tests for the main module."""
 
-from unittest.mock import patch, call
+from unittest.mock import patch
 
 from src.main import main, process_source, SOURCES
 
@@ -106,12 +106,12 @@ class TestProcessSource:
 
 
 class TestSources:
-    def test_sources_has_four_entries(self):
-        assert len(SOURCES) == 4
+    def test_sources_has_three_entries(self):
+        assert len(SOURCES) == 3
 
     def test_sources_order(self):
         names = [s["name"] for s in SOURCES]
-        assert names == ["The Batch", "Anthropic Blog", "NewsAPI", "Reddit"]
+        assert names == ["The Batch", "Anthropic Blog", "Twitter/X"]
 
     def test_each_source_has_required_keys(self):
         for source in SOURCES:
@@ -132,7 +132,7 @@ class TestMain:
         main()
 
         mock_dotenv.assert_called_once()
-        assert mock_process.call_count == 4
+        assert mock_process.call_count == 3
         mock_save.assert_called_once()
         saved_urls = mock_save.call_args[0][0]
         assert "https://example.com/1" in saved_urls
@@ -144,19 +144,19 @@ class TestMain:
     def test_main_skips_save_when_nothing_sent(self, mock_dotenv, mock_process, mock_load, mock_save):
         main()
 
-        assert mock_process.call_count == 4
+        assert mock_process.call_count == 3
         mock_save.assert_not_called()
 
     @patch("src.main.save_sent_articles")
     @patch("src.main.load_sent_articles", return_value=set())
     @patch("src.main.process_source")
     @patch("src.main.load_dotenv")
-    def test_main_processes_all_four_sources_in_order(self, mock_dotenv, mock_process, mock_load, mock_save):
-        """All 4 sources are processed in the correct order."""
+    def test_main_processes_all_sources_in_order(self, mock_dotenv, mock_process, mock_load, mock_save):
+        """All configured sources are processed in the correct order."""
         mock_process.return_value = []
 
         main()
 
-        assert mock_process.call_count == 4
+        assert mock_process.call_count == 3
         source_names = [c[0][0]["name"] for c in mock_process.call_args_list]
-        assert source_names == ["The Batch", "Anthropic Blog", "NewsAPI", "Reddit"]
+        assert source_names == ["The Batch", "Anthropic Blog", "Twitter/X"]
