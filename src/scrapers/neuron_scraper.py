@@ -8,12 +8,16 @@ from bs4 import BeautifulSoup
 
 RSS_URL = "https://rss.beehiiv.com/feeds/N4eCstxvgX.xml"
 
+# Cache content from RSS so fetch_article_content doesn't need a second request.
+_content_cache = {}
+
 
 def fetch_neuron_articles(days=7):
     """Fetch recent articles from The Neuron Daily RSS feed.
 
     Returns a list of dicts with keys: title, url, date.
     Only includes articles published within the last `days` days.
+    Article content from RSS is cached for later retrieval.
     """
     response = requests.get(RSS_URL, timeout=30)
     response.raise_for_status()
@@ -41,6 +45,11 @@ def fetch_neuron_articles(days=7):
             if parsed_date and parsed_date < cutoff:
                 continue
 
+        # Cache the full content from RSS content:encoded
+        content_encoded = item.find("content:encoded") or item.find("encoded")
+        if content_encoded and content_encoded.string:
+            _content_cache[url] = _html_to_text(content_encoded.string)
+
         articles.append({
             "title": title_text,
             "url": url,
@@ -51,16 +60,26 @@ def fetch_neuron_articles(days=7):
 
 
 def fetch_article_content(url):
-    """Fetch and extract text content from a Neuron Daily article page.
+    """Return article content, preferring the cached RSS content.
 
-    Returns clean text suitable for summarization.
+    Falls back to fetching the web page if not in cache.
     """
-    response = requests.get(url, timeout=30)
+    if url in _content_cache:
+        return _content_cache.pop(url)
+
+    # Fallback: fetch the page directly with browser-like headers
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+    }
+    response = requests.get(url, headers=headers, timeout=30)
     response.raise_for_status()
 
     soup = BeautifulSoup(response.text, "html.parser")
 
-    # Remove non-content elements
     for tag in soup.find_all(["script", "style", "nav", "footer", "header"]):
         tag.decompose()
 
@@ -93,7 +112,6 @@ def _html_to_text(html):
 
 def _parse_rfc2822(date_str):
     """Parse an RFC 2822 date string to a timezone-aware datetime."""
-    # e.g. "Fri, 27 Mar 2026 08:35:00 +0000"
     try:
         from email.utils import parsedate_to_datetime
         return parsedate_to_datetime(date_str)

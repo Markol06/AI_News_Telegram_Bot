@@ -6,11 +6,13 @@ from datetime import datetime, timedelta, timezone
 import pytest
 import requests
 
+from src.scrapers import neuron_scraper
 from src.scrapers.neuron_scraper import (
     fetch_neuron_articles,
     fetch_article_content,
     _html_to_text,
     _parse_rfc2822,
+    _content_cache,
 )
 
 
@@ -31,33 +33,48 @@ def _recent_rfc2822(days_ago=0):
     return dt.strftime("%a, %d %b %Y %H:%M:%S +0000")
 
 
-SAMPLE_RSS = _build_rss_xml(f"""
+SAMPLE_RSS_WITH_CONTENT = _build_rss_xml(f"""
     <item>
         <title>Google built real-life Pied Piper</title>
         <link>https://www.theneurondaily.com/p/google-built-real-life-pied-piper</link>
         <pubDate>{_recent_rfc2822(1)}</pubDate>
         <dc:creator>Grant Harvey</dc:creator>
+        <content:encoded><![CDATA[<h1>Google Pied Piper</h1><p>Google announced compression.</p>]]></content:encoded>
     </item>
     <item>
         <title>AI Summit Highlights</title>
         <link>https://www.theneurondaily.com/p/ai-summit-highlights</link>
         <pubDate>{_recent_rfc2822(3)}</pubDate>
         <dc:creator>Grant Harvey</dc:creator>
+        <content:encoded><![CDATA[<h1>AI Summit</h1><p>Key takeaways from the summit.</p>]]></content:encoded>
     </item>
     <item>
         <title>Old Article</title>
         <link>https://www.theneurondaily.com/p/old-article</link>
         <pubDate>{_recent_rfc2822(14)}</pubDate>
         <dc:creator>Grant Harvey</dc:creator>
+        <content:encoded><![CDATA[<p>Old content.</p>]]></content:encoded>
+    </item>
+""")
+
+SAMPLE_RSS_NO_CONTENT = _build_rss_xml(f"""
+    <item>
+        <title>Google built real-life Pied Piper</title>
+        <link>https://www.theneurondaily.com/p/google-built-real-life-pied-piper</link>
+        <pubDate>{_recent_rfc2822(1)}</pubDate>
+        <dc:creator>Grant Harvey</dc:creator>
     </item>
 """)
 
 
 class TestFetchNeuronArticles:
+    def setup_method(self):
+        _content_cache.clear()
+
     @patch("src.scrapers.neuron_scraper.requests.get")
     def test_fetches_recent_articles(self, mock_get):
         mock_resp = Mock()
-        mock_resp.text = SAMPLE_RSS
+        mock_resp.text = SAMPLE_RSS_WITH_CONTENT
         mock_resp.raise_for_status = Mock()
         mock_get.return_value = mock_resp
 
@@ -69,9 +86,22 @@ class TestFetchNeuronArticles:
         assert articles[1]["title"] == "AI Summit Highlights"
 
     @patch("src.scrapers.neuron_scraper.requests.get")
+    def test_caches_content_from_rss(self, mock_get):
+        mock_resp = Mock()
+        mock_resp.text = SAMPLE_RSS_WITH_CONTENT
+        mock_resp.raise_for_status = Mock()
+        mock_get.return_value = mock_resp
+
+        fetch_neuron_articles(days=7)
+
+        url = "https://www.theneurondaily.com/p/google-built-real-life-pied-piper"
+        assert url in _content_cache
+        assert "Google" in _content_cache[url]
+
+    @patch("src.scrapers.neuron_scraper.requests.get")
     def test_filters_old_articles(self, mock_get):
         mock_resp = Mock()
-        mock_resp.text = SAMPLE_RSS
+        mock_resp.text = SAMPLE_RSS_WITH_CONTENT
         mock_resp.raise_for_status = Mock()
         mock_get.return_value = mock_resp
 
@@ -83,7 +113,7 @@ class TestFetchNeuronArticles:
     @patch("src.scrapers.neuron_scraper.requests.get")
     def test_returns_all_with_large_window(self, mock_get):
         mock_resp = Mock()
-        mock_resp.text = SAMPLE_RSS
+        mock_resp.text = SAMPLE_RSS_WITH_CONTENT
         mock_resp.raise_for_status = Mock()
         mock_get.return_value = mock_resp
 
@@ -143,8 +173,20 @@ class TestFetchNeuronArticles:
 
 
 class TestFetchArticleContent:
+    def setup_method(self):
+        _content_cache.clear()
+
+    def test_returns_cached_content(self):
+        url = "https://www.theneurondaily.com/p/cached-article"
+        _content_cache[url] = "Cached article text"
+
+        content = fetch_article_content(url)
+
+        assert content == "Cached article text"
+        assert url not in _content_cache  # consumed from cache
+
     @patch("src.scrapers.neuron_scraper.requests.get")
-    def test_extracts_article_content(self, mock_get):
+    def test_fetches_from_web_when_not_cached(self, mock_get):
         html = """<html><body>
         <nav>Menu</nav>
         <article><h1>Big AI News</h1><p>Details about the news.</p></article>
@@ -175,11 +217,39 @@ class TestFetchArticleContent:
         assert "Some content here" in content
 
     @patch("src.scrapers.neuron_scraper.requests.get")
+    def test_sends_user_agent_header(self, mock_get):
+        html = "<html><body><p>Content</p></body></html>"
+        mock_resp = Mock()
+        mock_resp.text = html
+        mock_resp.raise_for_status = Mock()
+        mock_get.return_value = mock_resp
+
+        fetch_article_content("https://example.com/article")
+
+        call_kwargs = mock_get.call_args
+        assert "User-Agent" in call_kwargs.kwargs.get("headers", {})
+
+    @patch("src.scrapers.neuron_scraper.requests.get")
     def test_network_error_raises(self, mock_get):
         mock_get.side_effect = requests.exceptions.ConnectionError("fail")
 
         with pytest.raises(requests.exceptions.ConnectionError):
             fetch_article_content("https://example.com/article")
+
+    @patch("src.scrapers.neuron_scraper.requests.get")
+    def test_end_to_end_rss_then_content(self, mock_get):
+        """fetch_neuron_articles caches content, fetch_article_content returns it."""
+        mock_resp = Mock()
+        mock_resp.text = SAMPLE_RSS_WITH_CONTENT
+        mock_resp.raise_for_status = Mock()
+        mock_get.return_value = mock_resp
+
+        articles = fetch_neuron_articles(days=7)
+        content = fetch_article_content(articles[0]["url"])
+
+        assert "Google" in content
+        # Only one HTTP call (the RSS fetch), no second call for article page
+        mock_get.assert_called_once()
 
 
 class TestHtmlToText:
