@@ -11,6 +11,10 @@ from src.scrapers.twitter_scraper import (
     fetch_twitter_articles,
     fetch_article_content as fetch_twitter_content,
 )
+from src.scrapers.neuron_scraper import (
+    fetch_neuron_articles,
+    fetch_article_content as fetch_neuron_content,
+)
 from src.history import load_sent_articles, save_sent_articles, filter_new_articles
 from src.summarizer import summarize_articles
 from src.telegram_sender import send_source_header, send_article_message
@@ -35,6 +39,12 @@ SOURCES = [
         "emoji": "\U0001f426",
         "fetch": fetch_twitter_articles,
         "fetch_content": lambda article: fetch_twitter_content(article["url"]),
+    },
+    {
+        "name": "The Neuron Daily",
+        "emoji": "\U0001f9ec",
+        "fetch": fetch_neuron_articles,
+        "fetch_content": lambda article: fetch_neuron_content(article["url"]),
     },
 ]
 
