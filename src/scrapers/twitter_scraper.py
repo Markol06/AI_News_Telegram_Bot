@@ -30,6 +30,9 @@ AI_ACCOUNTS = [
     "rasbt",          # Sebastian Raschka - Lightning AI
     "GaryMarcus",     # Gary Marcus - AI critic, author
     "sama",           # Sam Altman - CEO OpenAI
+    "trq212",         # Thariq
+    "bcherny",        # Boris Cherny
+    "felixrieseberg", # Felix Rieseberg
 ]
 
 MAX_TWEETS = 10
