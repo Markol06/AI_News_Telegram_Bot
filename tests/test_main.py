@@ -128,12 +128,13 @@ class TestMain:
     @patch("src.main.load_sent_articles", return_value=set())
     @patch("src.main.process_source", return_value=["https://example.com/1"])
     @patch("src.main.load_dotenv")
-    def test_main_saves_sent_urls(self, mock_dotenv, mock_process, mock_load, mock_save):
+    def test_main_saves_after_each_source(self, mock_dotenv, mock_process, mock_load, mock_save):
         main()
 
         mock_dotenv.assert_called_once()
         assert mock_process.call_count == 4
-        mock_save.assert_called_once()
+        # Save is called once per source that returned URLs (all 4 here)
+        assert mock_save.call_count == 4
         saved_urls = mock_save.call_args[0][0]
         assert "https://example.com/1" in saved_urls
 

@@ -115,17 +115,18 @@ def process_source(source):
 def main():
     load_dotenv()
 
-    all_sent_urls = []
+    total_sent = 0
 
     for source in SOURCES:
         sent_urls = process_source(source)
-        all_sent_urls.extend(sent_urls)
+        if sent_urls:
+            sent = load_sent_articles()
+            sent.update(sent_urls)
+            save_sent_articles(sent)
+            total_sent += len(sent_urls)
 
-    if all_sent_urls:
-        sent = load_sent_articles()
-        sent.update(all_sent_urls)
-        save_sent_articles(sent)
-        print(f"\nDone! Sent {len(all_sent_urls)} article(s) total.")
+    if total_sent:
+        print(f"\nDone! Sent {total_sent} article(s) total.")
     else:
         print("\nNo new articles across all sources.")
 
